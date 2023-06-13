@@ -20,3 +20,12 @@ const Apto = NativeModules.Apto
 export function multiply(a: number, b: number): Promise<number> {
   return Apto.multiply(a, b);
 }
+
+export function init(apiKey: string, isDev: boolean): Promise<void> {
+  return Apto.inittal(apiKey, isDev);
+}
+
+export function onCardFlowStart (token:string,  onFailureCallback:FailedCallback ,
+  onSuccessCallback: SuccessCallback)  {
+  return Apto.onCardFlowStart(token,onFailureCallback, onSuccessCallback);
+}
