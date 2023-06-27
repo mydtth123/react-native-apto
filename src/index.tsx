@@ -22,10 +22,35 @@ export function multiply(a: number, b: number): Promise<number> {
 }
 
 export function init(apiKey: string, isDev: boolean): Promise<void> {
-  return Apto.inittal(apiKey, isDev);
+  return Apto.initial(apiKey, isDev);
 }
 
-export function onCardFlowStart (token:string,  onFailureCallback:FailedCallback ,
-  onSuccessCallback: SuccessCallback)  {
-  return Apto.onCardFlowStart(token,onFailureCallback, onSuccessCallback);
+export function startPhoneVerification(phoneNumber: string): Promise<any> {
+    const test_phone= "3132214363"
+  return Apto.startPhoneVerification(test_phone);
 }
+
+export function completeVerificataion(secret: string): Promise<any> {
+  const secret_test = "000000"
+  return Apto.completeVerificataion(secret_test);
+}
+export function createUser(data: any): Promise<any> {
+  // const secret_test = "000000"
+  return Apto.createUser(data);
+}
+
+export function completeSercondaryVerificataion(secret: string): Promise<any> { // this for login flow
+    const sec = "1992-06-07"
+  return Apto.completeSercondaryVerificataion(secret);
+}
+
+
+
+
+
+
+
+// export function onCardFlowStart (token:string,  onFailureCallback:FailedCallback ,
+//   onSuccessCallback: SuccessCallback)  {
+//   return Apto.onCardFlowStart(token,onFailureCallback, onSuccessCallback);
+// }
