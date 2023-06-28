@@ -6,7 +6,7 @@ import AptoSDK
 @objc(Apto)
 class Apto: NSObject {
     let token = MyProviderToken()
-//    var verification: Verification? = nil
+    //    var verification: Verification? = nil
     var primaryCredential:PhoneNumber?
     var secondCredential: Verification? = nil
     
@@ -15,15 +15,17 @@ class Apto: NSObject {
         resolve(a*b)
     }
     
-    @objc(initial:isSanbox:)
-    func initial(apiKey:String?, isSanbox:Bool) -> Void {
+    @objc(initial:baseURL:isSanbox:)
+    func initial(apiKey:String?, baseURL:String, isSanbox:Bool) -> Void {
         AptoPlatform.defaultManager().initializeWithApiKey(apiKey ?? "", environment: isSanbox ? .sandbox : .production)
+        token.baseURL = baseURL
         AptoPlatform.defaultManager().tokenProvider = token
+        //        "https://api-dev.tappo.uk/v1/sign"
     }
     
     @objc(startPhoneVerification:withResolver:withRejecter:)
     func startPhoneVerification(phoneNumber: String?,  resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
-            self.primaryCredential = PhoneNumber(countryCode: 1, phoneNumber: phoneNumber)
+        self.primaryCredential = PhoneNumber(countryCode: 1, phoneNumber: phoneNumber)
         if let primaryCredential = primaryCredential {
             AptoPlatform.defaultManager().startPhoneVerification(primaryCredential) { result in
                 switch result {
@@ -74,22 +76,22 @@ class Apto: NSObject {
     func createUser(data: [String: Any],  resolve:  @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
         let userData = mappingUserData(data:data)
         AptoPlatform.defaultManager().createUser(userData: userData) { result in
-          switch result {
-          case .failure(let error):
-              reject("ERROR_CODE","Create user Failed", error)
-            // Do something with the error
-          case .success(let user):
-              let data: [String: Any] = [
-                  "userId": user.userId,
-                  "accessToken": user.accessToken?.token ?? "",
-              ]
-              resolve(data)
-            // The user created. It contains the user id and the user session token.
-          }
+            switch result {
+            case .failure(let error):
+                reject("ERROR_CODE","Create user Failed", error)
+                // Do something with the error
+            case .success(let user):
+                let data: [String: Any] = [
+                    "userId": user.userId,
+                    "accessToken": user.accessToken?.token ?? "",
+                ]
+                resolve(data)
+                // The user created. It contains the user id and the user session token.
+            }
         }
     }
-
-  
+    
+    
     
     
     /**
@@ -103,65 +105,107 @@ class Apto: NSObject {
                 switch result {
                 case .failure(let error):
                     // Do something with the error
-                    reject("ERROR","Something went wrong",error)
+                    reject("ERROR_CODE","Something went wrong",error)
                 case .success(let verf):
                     if verf.status == .passed {
                         self.secondCredential = verf
                         // The verification succeeded. If it belongs to an existing user, it will contain a non null `secondaryCredential`.
-//                        resolve(verification)
+                        //                        resolve(verification)
                         self.loginWithExistingUser(resolve: resolve, reject: reject)
                     }
                     else {
                         // The verification failed: the secret is invalid.
-                        reject("333","Code invalid",NSError())
-
+                        reject("ERROR_CODE","Code invalid",nil)
+                        
                     }
                 }
             }
         }
-      
+        
+    }
+    @objc(startCardFlow:withRejecter:)
+    func startCardFlow (resolve:  @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
+        DispatchQueue.main.async {
+            if let currentViewController = UIApplication.shared.keyWindow?.rootViewController?.presentedViewController {
+                
+                AptoPlatform.defaultManager().startCardFlow(from: currentViewController, mode: .standalone, googleMapsApiKey: "AIzaSyAj21pmvNCyCzFqYq2D3nL4FwYPCzpHwRA") { [weak self] result in
+                    switch result {
+                    case .failure(let error):
+                        // handle error
+                        reject("ERROR","Something went wrong",error)
+                        print("Error: \(error)")
+                        break
+                    case .success(let module):
+                        // SDK successfully initialized
+                        resolve(" SDK successfully initialized")
+                        print(module)
+                        break
+                    }
+                }
+            } else {
+                reject("viewController_not_found", "Unable to find the current UIViewController.", nil)
+            }
+            
+        }
     }
     
     func loginWithExistingUser(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
         if let secondCredential = self.secondCredential, let primaryCredential = self.primaryCredential?.verification {
             AptoPlatform.defaultManager().loginUserWith(verifications: [primaryCredential, secondCredential]) { result in
-              switch result {
-              case .failure(let error):
-                  reject("ERROR","Something went wrong",error)
-                // Do something with the error
-              case .success(let user):
-                  let data: [String: Any] = [
-                      "userId": user.userId,
-                      "accessToken": user.accessToken?.token ?? "",
-                  ]
+                switch result {
+                case .failure(let error):
+                    reject("ERROR","Something went wrong",error)
+                    // Do something with the error
+                case .success(let user):
+                    let data: [String: Any] = [
+                        "userId": user.userId,
+                        "accessToken": user.accessToken?.token ?? "",
+                    ]
                     resolve(data)
-                // The user logged in. The user variable contains the user id and the user session token.
-              }
+                    // The user logged in. The user variable contains the user id and the user session token.
+                }
             }
         }
-       
+        
     }
     
     
     func mappingUserData(data: [String: Any]) -> DataPointList {
+        let email = data["email"] as? String
+        let firstName = data["firstName"] as? String
+        let lastName = data["lastName"] as? String
+        // address picking data
+        let street = data["street"] as? String
+        let apUnit = data["apUnit"] as? String
+        let city = data["city"] as? String
+        let region = data["region"] as? String
+        let zip = data["zip"] as? String
+        
+        let birthDate = data["birthDate"] as? String // must format YYYY-DD-MM
+        
         let userData = DataPointList()
-
-        userData.add(dataPoint: primaryCredential ?? PhoneNumber(countryCode: 1, phoneNumber: "1234567890"))
-        let email  = Email(email: "user@gmail.com", verified:true, notSpecified: false)
-        userData.add(dataPoint: email)
-        let name = PersonalName(firstName: "DA", lastName: "AAS")//
-        userData.add(dataPoint: name)
-        let address = Address(address: "123 Main Street", apUnit: "456", country: .defaultCountry, city: "San Francisco,", region: "CA", zip: "94128")
+        // adding phone number
+        userData.add(dataPoint: primaryCredential ?? PhoneNumber(countryCode: 1, phoneNumber: "0000000"))
+        // Email
+        userData.add(dataPoint: Email(email: email, verified:true, notSpecified: false))
+        //Name
+        let fullName = PersonalName(firstName: firstName, lastName: lastName)//
+        userData.add(dataPoint: fullName)
+        
+        //Adrress
+        let address = Address(address: street, apUnit: apUnit, country: .defaultCountry, city: city, region: region, zip: zip)
         userData.add(dataPoint: address)
-        let dateString = "06/07/1992"
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MM/dd/yyyy"
-        if let date = dateFormatter.date(from: dateString) {
-            print(date) // Output: 1992-06-07 00:00:00 +0000
-            let birthDate = BirthDate(date:date)
-            userData.add(dataPoint: birthDate)
-        } else {
-            print("Invalid date string")
+        
+        if let dateString = birthDate {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "YYYY-DD-MM"
+            if let date = dateFormatter.date(from: dateString) {
+                print(date) // Output: 1992-06-07 00:00:00 +0000
+                let d = BirthDate(date:date)
+                userData.add(dataPoint: d)
+            } else {
+                print("Invalid date string")
+            }
         }
         return userData
     }
@@ -169,10 +213,10 @@ class Apto: NSObject {
 }
 
 class MyProviderToken: AptoPlatformWebTokenProvider {
-    
+    var baseURL = ""
     
     public func getToken(_ payload: [String: Any], callback: @escaping (Result<String, NSError>) -> ()) {
-        let url = URL(string: "https://api-dev.tappo.uk/v1/sign")!
+        let url = URL(string: self.baseURL)!
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.headers = ["Content-Type": "application/json", "Accept": "application/json"];
@@ -206,119 +250,9 @@ class MyProviderToken: AptoPlatformWebTokenProvider {
         task.resume()
         
     }
-    //    }
 }
+
 struct JWTToken: Decodable {
     let token: String
-}
-
-//
-//  ViewController.swift
-//  AptoTest
-//
-//  Created by devcoco on 22/05/2023.
-//
-
-
-
-//// MARK: - Payload
-struct Payload  {
-    let dataPoints: DataPoints
-
-    init(dictionary: [String: Any]) {
-        self.dataPoints = DataPoints(dictionary: dictionary["data_points"] as! [String : Any])
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case dataPoints = "data_points"
-    }
-}
-//
-//// MARK: - DataPoints
-struct DataPoints {
-    let type: String
-    let data: [Datum]
-
-    init(dictionary: [String: Any]) {
-        self.type = dictionary["type"] as! String
-        var datum = [Datum]()
-        for d in dictionary["data"] as! [[String:Any]] {
-            datum.append(Datum(dictionary: d))
-        }
-        self.data = datum
-    }
-}
-//// MARK: - Datum
-struct Datum {
-    let verified, notSpecified: Bool?
-    let dataType, type: String?
-    let countryCode: Int?
-    let phoneNumber: String?
-    let verification: Verification?
-    let value, country, docType, email: String?
-    let date, firstName, lastName, streetOne: String?
-    let streetTwo, locality, region, postalCode: String?
-
-    init(dictionary: [String: Any]) {
-        self.verified = dictionary["verified"] as? Bool
-        self.notSpecified = dictionary["not_specified"] as? Bool
-        self.dataType = dictionary["data_type"] as? String
-        self.type = dictionary["type"] as? String
-        self.countryCode = dictionary["country_code"] as? Int
-        self.phoneNumber = dictionary["phone_number"] as? String
-        let verifi = Verification(verificationId: "", verificationType: .phoneNumber, status: .pending)
-        verifi.createFromDict(dictionary: (dictionary["verification"] as? [String:Any])!)
-        self.verification = verifi
-        self.value = dictionary["value"] as? String
-        self.country = dictionary["country"] as? String
-        self.docType = dictionary["doc_type"] as? String
-        self.email = dictionary["email"] as? String
-        self.date = dictionary["date"] as? String
-        self.firstName = dictionary["first_name"] as? String
-        self.lastName = dictionary["last_name"] as? String
-        self.streetOne = dictionary["street_one"] as? String
-        self.streetTwo = dictionary["street_two"] as? String
-        self.locality = dictionary["locality"] as? String
-        self.region = dictionary["region"] as? String
-        self.postalCode = dictionary["postal_code"] as? String
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case verified
-        case notSpecified = "not_specified"
-        case dataType = "data_type"
-        case type
-        case countryCode = "country_code"
-        case phoneNumber = "phone_number"
-        case verification, value, country
-        case docType = "doc_type"
-        case email, date
-        case firstName = "first_name"
-        case lastName = "last_name"
-        case streetOne = "street_one"
-        case streetTwo = "street_two"
-        case locality, region
-        case postalCode = "postal_code"
-    }
-}
-////
-//// MARK: - Verification
-extension Verification {
-//    let verificationID: String
-//    let secret: String?
-//    let verificationType: String?
-    func createFromDict(dictionary: [String: Any]) {
-        self.verificationId = dictionary["verification_id"] as! String
-        self.secret = dictionary["secret"] as? String
-        let type = dictionary["verification_type"]  as? String
-        self.verificationType = type  == "phoneNumber" ? .phoneNumber : .birthDate
-    }
-
-
-    enum CodingKeys: String, CodingKey {
-        case verificationID = "verification_id"
-        case secret
-        case verificationType = "verification_type"
-    }
 }
 

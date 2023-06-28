@@ -5,7 +5,7 @@ RCT_EXTERN_METHOD(multiply:(float)a withB:(float)b
                  withResolver:(RCTPromiseResolveBlock)resolve
                  withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(initial:(NSString)apiKey isSanbox:(BOOL)isSanbox)
+RCT_EXTERN_METHOD(initial:(NSString)apiKey baseURL:(NSString)baseURL isSanbox:(BOOL)isSanbox)
 
 RCT_EXTERN_METHOD(startPhoneVerification:(NSString)phoneNumber
                   withResolver:(RCTPromiseResolveBlock)resolve
@@ -20,6 +20,10 @@ RCT_EXTERN_METHOD(completeSercondaryVerificataion:(NSString)secret
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(createUser:(NSDictionary)data
+                  withResolver:(RCTPromiseResolveBlock)resolve
+                  withRejecter:(RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(startCardFlow:
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
