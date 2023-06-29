@@ -23,8 +23,7 @@ RCT_EXTERN_METHOD(createUser:(NSDictionary)data
                   withResolver:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(startCardFlow:
-                  withResolver:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(startCardFlow:(RCTPromiseResolveBlock)resolve
                   withRejecter:(RCTPromiseRejectBlock)reject)
 
 + (BOOL)requiresMainQueueSetup

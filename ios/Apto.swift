@@ -124,11 +124,13 @@ class Apto: NSObject {
         
     }
     @objc(startCardFlow:withRejecter:)
-    func startCardFlow (resolve:  @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
+    func startCardFlow(_ resolve:  @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
         DispatchQueue.main.async {
-            if let currentViewController = UIApplication.shared.keyWindow?.rootViewController?.presentedViewController {
-                
-                AptoPlatform.defaultManager().startCardFlow(from: currentViewController, mode: .standalone, googleMapsApiKey: "AIzaSyAj21pmvNCyCzFqYq2D3nL4FwYPCzpHwRA") { [weak self] result in
+            if var currentViewController = UIApplication.shared.keyWindow?.rootViewController {
+                while ((currentViewController.presentedViewController) != nil) {
+                    currentViewController = currentViewController.presentedViewController!;
+                }
+                AptoPlatform.defaultManager().startCardFlow(from: currentViewController, mode: .embedded, googleMapsApiKey: "AIzaSyAj21pmvNCyCzFqYq2D3nL4FwYPCzpHwRA") { [weak self] result in
                     switch result {
                     case .failure(let error):
                         // handle error
