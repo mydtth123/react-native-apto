@@ -1,26 +1,26 @@
 # react-native-apto
 
+This brigde for support React Native, base on Apto Sdk
 Apto provides SDKs that wrap the Apto Mobile API so that you don’t need to deal with network requests. Convenient classes are exposed in these mobile SDKs, available for iOS (Swift and Objective-C) and Android (Kotlin and Java).
 
 ## Installation
 
 ```sh
-npm install react-native-apto
+yarn add @mydtth123/react-native-apto
 ```
 
 ## Usage
 
 ```js
-import { multiply } from 'react-native-apto';
+import { completeSercondaryVerificataion, completeVerificataion, createUser, init, startCardFlow, startPhoneVerification } from 'react-native-apto';
 
 // ...
-
-const result = await multiply(3, 7);
+const phoneNumber  = "988522212"
+const result  = await startPhoneVerification(phoneNumber)
 ```
 
 ## Contributing
 
-See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
 
 ## License
 
