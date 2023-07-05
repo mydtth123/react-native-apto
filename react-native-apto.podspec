@@ -13,6 +13,7 @@ Pod::Spec.new do |s|
 
   s.platforms    = { :ios => "11.0" }
   s.source       = { :git => "https://github.com/mydtth123/react-native-apto.git", :tag => "#{s.version}" }
+  spec.resource_bundles = { "AptoUISDK" => ['AptoUISDK/Pod/Assets', 'AptoPCI/AptoPCISDK/Assets'] }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
