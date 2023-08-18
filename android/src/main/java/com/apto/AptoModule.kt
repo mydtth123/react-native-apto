@@ -1,7 +1,11 @@
 package com.apto
 
 import android.app.Application
-import android.util.Log
+import androidx.fragment.app.FragmentActivity
+import com.aptopayments.mobile.data.PhoneNumber
+import com.aptopayments.mobile.data.user.Verification
+import com.aptopayments.mobile.data.user.VerificationStatus
+import com.aptopayments.mobile.exception.Failure
 import com.aptopayments.mobile.features.managecard.CardOptions
 import com.aptopayments.mobile.functional.Either
 import com.aptopayments.mobile.platform.AptoPlatform
@@ -9,88 +13,145 @@ import com.aptopayments.mobile.platform.AptoPlatformWebTokenProvider
 import com.aptopayments.mobile.platform.AptoSdkEnvironment
 import com.aptopayments.mobile.platform.WebTokenFailure
 import com.aptopayments.sdk.core.platform.AptoUiSdk
-import com.facebook.react.bridge.Callback
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.bridge.UiThreadUtil
+import com.facebook.react.bridge.WritableNativeMap
 import com.google.gson.Gson
-import io.jsonwebtoken.Jwts
-import io.jsonwebtoken.SignatureAlgorithm
+
 import okhttp3.Call
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import org.bouncycastle.util.io.pem.PemObject
-import org.bouncycastle.util.io.pem.PemReader
 import java.io.IOException
-import java.io.StringReader
-import java.lang.Exception
-import java.security.KeyFactory
-import java.security.interfaces.RSAPrivateKey
-import java.security.spec.PKCS8EncodedKeySpec
-import javax.crypto.Cipher.SECRET_KEY
 
 
 class AptoModule(reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
 
-  val tokenProvider = MyWebTokenProviderA()
+  private val tokenProvider = MyWebTokenProviderA()
+  private var primaryCredential: Verification? = null
+  private var secondCredential: Verification? = null
   override fun getName(): String {
     return NAME
   }
 
-  // Example method
-  // See https://reactnative.dev/docs/native-modules-android
-  @ReactMethod
-  fun multiply(a: Double, b: Double, promise: Promise) {
-    promise.resolve(a * b)
-  }
 
   @ReactMethod
   fun initial(apiKey: String, baseURL: String, isSanbox: Boolean) {
-
     val env = if (isSanbox) AptoSdkEnvironment.SBX else AptoSdkEnvironment.PRD;
-    AptoUiSdk.setWebTokenProvider(tokenProvider)
-  reactApplicationContext.currentActivity?.runOnUiThread(
-    Runnable {
-      AptoUiSdk.initializeWithApiKey(
-        reactApplicationContext.applicationContext as Application,
-        apiKey,
-        AptoSdkEnvironment.SBX
-      )
-
-    }
-  )
-
-//    AptoUiSdk.setApiKey(apiKey, AptoSdkEnvironment.SBX)
+    AptoPlatform.initializeWithApiKey(
+      reactApplicationContext.applicationContext as Application,
+      apiKey,
+      env
+    )
+    tokenProvider.baseURL = baseURL
+    AptoPlatform.webTokenProvider = tokenProvider
   }
 
   @ReactMethod
-  fun startCardFlow(promise: Promise) {
-    val cardOptions = CardOptions(showNotificationPreferences = true, showStatsButton = true, showAccountSettingsButton = true,authenticateOnPCI = CardOptions.PCIAuthType.NONE,
-    authenticateOnStartup = false, showDetailedCardActivityOption = true, hideFundingSourcesReconnectButton = true, openingMode = CardOptions.OpeningMode.EMBEDDED)
+  fun startPhoneVerification(phoneNumber: String, promise: Promise) {
+    val phone = PhoneNumber("+1", phoneNumber)
+    phone.let {
+      AptoPlatform.startPhoneVerification(it) { result ->
+        result.either({
+          promise.reject("ERROR_CODE", "Something went wrong", null)
+        }) { verification ->
+          this.primaryCredential = verification
+          val data = WritableNativeMap()
+          data.putString("verificationId", verification?.verificationId)
+          promise.resolve(data)
+        }
+      }
 
-    reactApplicationContext.currentActivity?.let {
-//      reactApplicationContext.runOnUiQueueThread(Runnable {
-        AptoUiSdk.startCardFlow(it, cardOptions,
-          onSuccess = {  ->
-            println("onSuccess",)
-            promise.resolve("onSuccess")
-            // SDK successfully initialized
-          },
-          onError = { err ->
-            promise.reject(Throwable(err.errorMessage()))
-            println("onError ${err.errorMessage()}")
-            // SDK initialized with errors
+    }
+  }
+
+  @ReactMethod
+  fun completeVerificataion(secret: String, promise: Promise) {
+    this.primaryCredential?.let { primaryCreden ->
+      primaryCreden.secret = secret
+      AptoPlatform.completeVerification(primaryCreden) { result ->
+        result.either({
+          promise.reject("ERROR_CODE", "Something went wrong", null)
+        }) { verification ->
+          if (verification.status == VerificationStatus.PASSED) {
+            val data = WritableNativeMap()
+            data.putString("verificationId", verification?.verificationId)
+            verification.secondaryCredential?.let {
+              data.putString("secondaryCredential", it.verificationId)
+              this.secondCredential = it
+            }
+          } else {
+            promise.reject("ERROR_CODE", "Code invalid", null)
+
           }
-        )
-//      })
+        }
+      }
+    }
+  }
 
+  @ReactMethod
+  fun completeSercondaryVerificataion(secret: String, promise: Promise) {
+    this.secondCredential?.let { credential ->
+      credential.secret = secret
+      AptoPlatform.completeVerification(credential) { result ->
+        result.either({
+          promise.reject("ERROR_CODE", "Something went wrong", null)
+        }) { verification ->
+          if (verification.status == VerificationStatus.PASSED) {
+            this.secondCredential = verification
+            this.loginWithExistingUser(promise)
+          } else {
+            promise.reject("ERROR_CODE", "Code invalid", null)
+          }
+        }
+      }
+    }
+  }
+  fun loginWithExistingUser(promise: Promise){
+    safeLet(this.primaryCredential, this.secondCredential) { primary, second ->
+      AptoPlatform.loginUserWith(listOf(primary, second) as List<Verification>){ result  ->
+        result.either({
+          promise.reject("ERROR","Something went wrong",null)
+        }) {user ->
+          val data = WritableNativeMap()
+          data.putString("userId", user.userId)
+          data.putString("accessToken", user.token)
+          promise.resolve(data)
+        }
+      }
+    }
+  }
+
+
+  @ReactMethod
+  fun startCardFlow(promise: Promise) {
+    val cardOptions = CardOptions(
+      showNotificationPreferences = true,
+      showStatsButton = true,
+      showAccountSettingsButton = true,
+      authenticateOnPCI = CardOptions.PCIAuthType.NONE,
+      authenticateOnStartup = false,
+      showDetailedCardActivityOption = true,
+      hideFundingSourcesReconnectButton = true,
+      openingMode = CardOptions.OpeningMode.EMBEDDED
+    )
+    reactApplicationContext.currentActivity?.let {
+      AptoUiSdk.startCardFlow(it, cardOptions,
+        onSuccess = { ->
+          println("onSuccess")
+          promise.resolve("onSuccess")
+        },
+        onError = { err ->
+          promise.reject(Throwable(err.errorMessage()))
+          println("onError ${err.errorMessage()}")
+        }
+      )
     }
   }
 
@@ -99,14 +160,27 @@ class AptoModule(reactContext: ReactApplicationContext) :
     const val NAME = "Apto"
   }
 
+  /**
+   * Safely get and cast the current activity as an AppCompatActivity. If that fails, the promise
+   * provided will be resolved with an error message instructing the user to retry the method.
+   */
+  private fun getCurrentActivityOrResolveWithError(promise: Promise?): FragmentActivity? {
+    (currentActivity as? FragmentActivity)?.let {
+      return it
+    }
+    promise?.reject("ERROR_CODE", "currentActivity not fount", null)
+    return null
+  }
+
 
 }
-class MyWebTokenProviderA: AptoPlatformWebTokenProvider {
+
+class MyWebTokenProviderA : AptoPlatformWebTokenProvider {
   private val client = OkHttpClient();
+  var baseURL = ""
   override fun getToken(payload: String, callback: (Either<WebTokenFailure, String>) -> Unit) {
-//       This is an example that uses okhttp to fetch the JWT from your server
     val request = Request.Builder()
-      .url("https://api-dev.tappo.uk/v1/sign")
+      .url(this.baseURL)
       .post(payload.toRequestBody("application/json".toMediaType()))
       .build()
 
@@ -137,3 +211,6 @@ class MyWebTokenProviderA: AptoPlatformWebTokenProvider {
 
 
 class UserResponse(val token: String)
+inline fun <T1: Any, T2: Any, R: Any> safeLet(p1: T1?, p2: T2?, block: (T1, T2)->R?): R? {
+  return if (p1 != null && p2 != null) block(p1, p2) else null
+}

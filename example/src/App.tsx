@@ -1,18 +1,61 @@
 import * as React from 'react';
 
-import { StyleSheet, View, Text } from 'react-native';
-import { multiply } from 'react-native-apto';
+import { StyleSheet, View, Button, ActivityIndicator } from 'react-native';
+import { AptoSDK } from 'react-native-apto';
 
 export default function App() {
-  const [result, setResult] = React.useState<number | undefined>();
+  const [loading, setLoading] = React.useState(false);
 
-  React.useEffect(() => {
-    multiply(3, 7).then(setResult);
-  }, []);
+  React.useEffect(() => {}, []);
+
+  const onTest = async () => {
+    setLoading(true);
+    const res = await AptoSDK.startPhoneVerification('3132214565');
+    console.log('onTest', res);
+    setLoading(false);
+  };
+
+  const onTestOTP = async () => {
+    setLoading(true);
+    const res = await AptoSDK.completeVerificataion('000000');
+    console.log('onTestOTP ', res);
+    setLoading(false);
+  };
+
+  const onTestCreate = async () => {
+    setLoading(true);
+    const data = {
+      firstName: 'John',
+    };
+    const res = await AptoSDK.createUser(data);
+
+    console.log('onTestCreate', res);
+
+    setLoading(false);
+  };
+
+  const onVerifyBirthDate = async () => {
+    setLoading(true);
+    const date = '1992-06-07';
+    const res = await AptoSDK.completeSercondaryVerificataion(date);
+    console.log('onVerifyBirthDate', res);
+    setLoading(false);
+  };
+
+  const onStartCardFlow = async () => {
+    setLoading(true);
+    await AptoSDK.startCardFlow();
+    setLoading(false);
+  };
 
   return (
     <View style={styles.container}>
-      <Text>Result: {result}</Text>
+      <Button title="Test start phone" onPress={onTest} />
+      <Button title="Test start phone otp" onPress={onTestOTP} />
+      <Button title="Test verify birthdate" onPress={onVerifyBirthDate} />
+      <Button title="Test start create user" onPress={onTestCreate} />
+      <Button title="Test start CardFlow" onPress={onStartCardFlow} />
+      {loading ? <ActivityIndicator size={'large'} color={'blue'} /> : null}
     </View>
   );
 }

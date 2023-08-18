@@ -20,7 +20,6 @@ class Apto: NSObject {
         AptoPlatform.defaultManager().initializeWithApiKey(apiKey ?? "", environment: isSanbox ? .sandbox : .production)
         token.baseURL = baseURL
         AptoPlatform.defaultManager().tokenProvider = token
-        //        "https://api-dev.tappo.uk/v1/sign"
     }
     
     @objc(startPhoneVerification:withResolver:withRejecter:)
@@ -35,7 +34,9 @@ class Apto: NSObject {
                 case .success(let ver):
                     // The verification started and the user received an SMS with a single use code (OTP).
                     self.primaryCredential?.verification = ver;
-                    resolve(result)
+                    let data: [String: Any] = [
+                        "verificationId": ver.verificationId]
+                    resolve(data)
                 }
             }
             
@@ -121,15 +122,12 @@ class Apto: NSObject {
                 }
             }
         }
-        
     }
+    
     @objc(startCardFlow:withRejecter:)
     func startCardFlow(_ resolve:  @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
         DispatchQueue.main.async {
-            if var currentViewController = UIApplication.shared.keyWindow?.rootViewController {
-                while ((currentViewController.presentedViewController) != nil) {
-                    currentViewController = currentViewController.presentedViewController!;
-                }
+            if let currentViewController = RCTPresentedViewController() {
                 AptoPlatform.defaultManager().startCardFlow(from: currentViewController, mode: .embedded, googleMapsApiKey: "AIzaSyAj21pmvNCyCzFqYq2D3nL4FwYPCzpHwRA") { [weak self] result in
                     switch result {
                     case .failure(let error):
@@ -139,8 +137,14 @@ class Apto: NSObject {
                         break
                     case .success(let module):
                         // SDK successfully initialized
-                        resolve(" SDK successfully initialized")
-                        print(module)
+                        var data: [String: Any] = ["accessToken":""]
+                        module.onClose = { result in
+                            if let token =  AptoPlatform.defaultManager().currentToken()?.token {
+                                data["accessToken"] = token
+                                resolve(data)
+                                
+                            }
+                        }
                         break
                     }
                 }
@@ -150,6 +154,31 @@ class Apto: NSObject {
             
         }
     }
+    
+    @objc(manageCard:withRejecter:)
+    func manageCard(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
+        DispatchQueue.main.async {
+            if let currentViewController = RCTPresentedViewController() {
+                AptoPlatform.defaultManager().startCardFlow(from: currentViewController, mode: .embedded, googleMapsApiKey: "AIzaSyAj21pmvNCyCzFqYq2D3nL4FwYPCzpHwRA") { [weak self] result in
+                    switch result {
+                    case .failure(let error):
+                        // handle error
+                        reject("ERROR","Something went wrong",error)
+                        break
+                    case .success:
+                        // SDK successfully initialized
+                        resolve("Sucess")
+                        break
+                    }
+                }
+            } else {
+                reject("viewController_not_found", "Unable to find the current UIViewController.", nil)
+            }
+            
+        }
+    }
+    
+    
     
     func loginWithExistingUser(resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) -> Void {
         if let secondCredential = self.secondCredential, let primaryCredential = self.primaryCredential?.verification {
@@ -168,8 +197,13 @@ class Apto: NSObject {
                 }
             }
         }
-        
     }
+    
+    @objc(closeUserSession)
+    func closeUserSession(){
+        AptoPlatform.defaultManager().logout()
+    }
+    
     
     
     func mappingUserData(data: [String: Any]) -> DataPointList {

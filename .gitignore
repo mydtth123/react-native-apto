@@ -59,6 +59,7 @@ buck-out/
 
 # CocoaPods
 /ios/Pods/
+/ios/Pods/
 
 # Misc
 #
@@ -77,33 +78,6 @@ google-services.json
 *.dSYM.zip
 ios/Consumer.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 consumer-mobile.code-workspace
-example/android/.gradle/7.5.1/checksums/checksums.lock
-example/android/.gradle/7.5.1/checksums/md5-checksums.bin
-example/android/.gradle/7.5.1/checksums/sha1-checksums.bin
-example/android/.gradle/7.5.1/fileHashes/fileHashes.bin
-example/android/.gradle/7.5.1/fileHashes/fileHashes.lock
-example/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
-example/android/.gradle/buildOutputCleanup/outputFiles.bin
-example/android/.idea/compiler.xml
-example/android/.idea/gradle.xml
-example/android/.idea/misc.xml
-example/android/.gradle/7.5.1/checksums/checksums.lock
-example/android/.gradle/7.5.1/checksums/md5-checksums.bin
-example/android/.gradle/7.5.1/checksums/sha1-checksums.bin
-example/android/.gradle/7.5.1/fileHashes/fileHashes.bin
-example/android/.gradle/7.5.1/fileHashes/fileHashes.lock
-example/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
-example/android/.gradle/buildOutputCleanup/outputFiles.bin
-example/android/.idea/compiler.xml
-example/android/.idea/gradle.xml
-example/android/.idea/misc.xml
-example/android/.gradle/7.5.1/checksums/checksums.lock
-example/android/.gradle/7.5.1/checksums/md5-checksums.bin
-example/android/.gradle/7.5.1/checksums/sha1-checksums.bin
-example/android/.gradle/7.5.1/fileHashes/fileHashes.bin
-example/android/.gradle/7.5.1/fileHashes/fileHashes.lock
-example/android/.gradle/buildOutputCleanup/buildOutputCleanup.lock
-example/android/.gradle/buildOutputCleanup/outputFiles.bin
-example/android/.idea/compiler.xml
-example/android/.idea/gradle.xml
-example/android/.idea/misc.xml
+example/android/
+example/ios/
+example/vendor/
