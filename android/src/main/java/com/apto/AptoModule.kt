@@ -3,9 +3,14 @@ package com.apto
 import android.app.Application
 import androidx.fragment.app.FragmentActivity
 import com.aptopayments.mobile.data.PhoneNumber
+import com.aptopayments.mobile.data.user.AddressDataPoint
+import com.aptopayments.mobile.data.user.BirthdateDataPoint
+import com.aptopayments.mobile.data.user.DataPointList
+import com.aptopayments.mobile.data.user.EmailDataPoint
+import com.aptopayments.mobile.data.user.NameDataPoint
+import com.aptopayments.mobile.data.user.PhoneDataPoint
 import com.aptopayments.mobile.data.user.Verification
 import com.aptopayments.mobile.data.user.VerificationStatus
-import com.aptopayments.mobile.exception.Failure
 import com.aptopayments.mobile.features.managecard.CardOptions
 import com.aptopayments.mobile.functional.Either
 import com.aptopayments.mobile.platform.AptoPlatform
@@ -17,6 +22,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableNativeMap
 import com.google.gson.Gson
 
@@ -26,6 +32,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.threeten.bp.LocalDate
+import org.threeten.bp.format.DateTimeFormatter
 import java.io.IOException
 
 
@@ -34,7 +42,7 @@ class AptoModule(reactContext: ReactApplicationContext) :
 
 
   private val tokenProvider = MyWebTokenProviderA()
-  private var primaryCredential: Verification? = null
+  private var primaryCredential: PhoneDataPoint? = null
   private var secondCredential: Verification? = null
   override fun getName(): String {
     return NAME
@@ -56,14 +64,15 @@ class AptoModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun startPhoneVerification(phoneNumber: String, promise: Promise) {
     val phone = PhoneNumber("+1", phoneNumber)
-    phone.let {
+
+   phone.let {
       AptoPlatform.startPhoneVerification(it) { result ->
         result.either({
           promise.reject("ERROR_CODE", "Something went wrong", null)
         }) { verification ->
-          this.primaryCredential = verification
+          this.primaryCredential = PhoneDataPoint(phone,verification)
           val data = WritableNativeMap()
-          data.putString("verificationId", verification?.verificationId)
+          data.putString("verificationId", verification.verificationId)
           promise.resolve(data)
         }
       }
@@ -73,7 +82,7 @@ class AptoModule(reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun completeVerificataion(secret: String, promise: Promise) {
-    this.primaryCredential?.let { primaryCreden ->
+    this.primaryCredential?.verification?.let { primaryCreden ->
       primaryCreden.secret = secret
       AptoPlatform.completeVerification(primaryCreden) { result ->
         result.either({
@@ -81,11 +90,12 @@ class AptoModule(reactContext: ReactApplicationContext) :
         }) { verification ->
           if (verification.status == VerificationStatus.PASSED) {
             val data = WritableNativeMap()
-            data.putString("verificationId", verification?.verificationId)
+            data.putString("verificationId", verification.verificationId)
             verification.secondaryCredential?.let {
               data.putString("secondaryCredential", it.verificationId)
               this.secondCredential = it
             }
+            promise.resolve(data)
           } else {
             promise.reject("ERROR_CODE", "Code invalid", null)
 
@@ -128,6 +138,24 @@ class AptoModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  @ReactMethod
+  fun createUser(data: ReadableMap, promise: Promise){
+    val userData = mappingUserData(data)
+    AptoPlatform.createUser(userData) {
+      it.either({
+        // Do something with the error
+        promise.reject("ERROR","Something went wrong",null)
+      },
+        { user ->
+          // The user created. It contains the user id and the user session token.
+          val map = WritableNativeMap()
+          map.putString("userId", user.userId)
+          map.putString("accessToken", user.token)
+          promise.resolve(map)
+        })
+    }
+  }
+
 
   @ReactMethod
   fun startCardFlow(promise: Promise) {
@@ -155,6 +183,11 @@ class AptoModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  @ReactMethod
+  fun closeUserSession(){
+    AptoPlatform.logout()
+  }
+
 
   companion object {
     const val NAME = "Apto"
@@ -171,8 +204,36 @@ class AptoModule(reactContext: ReactApplicationContext) :
     promise?.reject("ERROR_CODE", "currentActivity not fount", null)
     return null
   }
+  private fun mappingUserData(data:ReadableMap):DataPointList {
+    val userData = DataPointList()
+    val email = data.getString("email")
+    val firstName = data.getString("firstName")
+    val lastName = data.getString("lastName")
+    val street = data.getString("street")
+    val city = data.getString("city")
+    val zip = data.getString("zip")
+    val birthDate = data.getString("birthDate") // must format YYYY-DD-MM
 
+    this.primaryCredential?.let {
+      userData.add(it)
+    }
+    email?.let {
+      val emailData = EmailDataPoint(it)
+      userData.add(emailData)
+    }
 
+    safeLet(firstName,lastName){ primary, second ->
+      val name = NameDataPoint(primary, second)
+      userData.add(name)
+    }
+    val address  = AddressDataPoint(street,"",city, city, zip,"US")
+    userData.add(address)
+    val formatter = DateTimeFormatter.ofPattern("yyyy-dd-MM")
+    val localDate = LocalDate.parse(birthDate, formatter)
+    val birthdate = BirthdateDataPoint(localDate)
+    userData.add(birthdate)
+    return userData
+  }
 }
 
 class MyWebTokenProviderA : AptoPlatformWebTokenProvider {
